@@ -7,7 +7,9 @@ from zk_lend_new.lending import deposite, withdraw
 from loguru import logger
 from sent_eth.sent import send_eth
 from withdraw.sub_accs import withdraw_all_funds_to_main_account
-
+from withdraw.okx import main_withdraw
+# Определение семафора для контроля над потоками
+sem = asyncio.Semaphore(5)
 
 # Функция для выполнения операций для одного кошелька
 async def perform_operations_for_wallet(address, private_key, to_addresses):
@@ -57,7 +59,10 @@ async def perform_operations_for_wallet(address, private_key, to_addresses):
 
     # После завершения всех операций, отправляем эфиры
     await send_eth(private_key, address, to_addresses)
-
+async def start(address, private_key, to_addresses):
+    await main_withdraw()
+    await asyncio.sleep(300)
+    await perform_operations_for_wallet(address, private_key, to_addresses)
 
 async def main():
     # Выполните функцию `withdraw_all_funds_to_main_account` сразу в начале
@@ -108,7 +113,6 @@ async def main():
     # Запускаем оставшиеся задачи
     if tasks:
         await asyncio.gather(*tasks)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
