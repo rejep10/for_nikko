@@ -9,7 +9,7 @@ from sent_eth.sent import send_eth
 from withdraw.sub_accs import withdraw_all_funds_to_main_account
 from withdraw.okx import main_withdraw
 # Определение семафора для контроля над потоками
-sem = asyncio.Semaphore(5)
+sem = asyncio.Semaphore(1)
 
 # Функция для выполнения операций для одного кошелька
 async def perform_operations_for_wallet(address, private_key, to_addresses):
@@ -60,9 +60,14 @@ async def perform_operations_for_wallet(address, private_key, to_addresses):
     # После завершения всех операций, отправляем эфиры
     await send_eth(private_key, address, to_addresses)
 async def start(address, private_key, to_addresses):
-    await main_withdraw()
-    await asyncio.sleep(300)
-    await perform_operations_for_wallet(address, private_key, to_addresses)
+    async with sem:
+        await main_withdraw(address)
+        logger.info('poshel spat')
+        await asyncio.sleep(300)
+        logger.info('Начал работу над кошельком')
+        await perform_operations_for_wallet(address, private_key, to_addresses)
+        logger.info('Uspeshno')
+
 
 async def main():
     # Выполните функцию `withdraw_all_funds_to_main_account` сразу в начале
@@ -95,24 +100,11 @@ async def main():
         print("Количество адресов для отправки должно совпадать с количеством кошельков.")
         return
 
-    # Определите количество кошельков, которые должны выполняться одновременно
-    num_simultaneous_wallets = 5  # Вы можете настроить это число
-
-    # Создайте задачи для одновременного выполнения
     tasks = []
     for i, address in enumerate(addresses):
-        # Создаем копию функции perform_operations_for_wallet с уникальными параметрами
-        task = perform_operations_for_wallet(address, private_keys[i], to_addresses[i])
-        tasks.append(task)
+        tasks.append(start(address, private_keys[i], to_addresses))
+    await asyncio.gather(*tasks)
 
-        # Если достигнуто нужное количество задач, ждем их завершения, а затем запускаем новую группу
-        if len(tasks) == num_simultaneous_wallets:
-            await asyncio.gather(*tasks)
-            tasks = []
-
-    # Запускаем оставшиеся задачи
-    if tasks:
-        await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
     asyncio.run(main())
