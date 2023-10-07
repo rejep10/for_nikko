@@ -5,7 +5,7 @@ import random
 #----main-options----#
 switch_cex = "okx"       # binance, mexc, kucoin, gate, okx, huobi, bybit
 symbolWithdraw = "ETH"      # символ токена
-network = "Arbitrum One"     # ID сети
+network = "Starknet"     # ID сети
 proxy_server = ""
 
 #----second-options----#
@@ -74,6 +74,10 @@ async def okx_withdraw(address, amount_to_withdrawal, wallet_number):
     except Exception as error:
         print(f'\n>>>[OKx] Не удалось вывести {amount_to_withdrawal} {symbolWithdraw}: {error} ', flush=True)
         print(f'    [{wallet_number}]{address}', flush=True)
+    finally:
+        # Закрываем ресурсы биржи после завершения операции
+        await exchange.close()
+
 
 async def choose_cex(address, amount_to_withdrawal, wallet_number):
     if switch_cex == "okx":
@@ -109,7 +113,7 @@ async def shuffle(wallets_list, shuffle_wallets):
         raise ValueError("\n>>> Неверное значение переменной 'shuffle_wallets'. Ожидается 'yes' или 'no'.")
     return numbered_wallets
 
-async def main_withdraw():
+async def main_withdraw(address):
     try:
         with open("wallets.txt", "r") as f:
             wallets_list = [row.strip() for row in f if row.strip()]
@@ -121,7 +125,7 @@ async def main_withdraw():
             await asyncio.sleep(random.randint(2, 4))
 
             tasks = []
-            for wallet_number, address in numbered_wallets:
+            for wallet_number in numbered_wallets:
                 amount_to_withdrawal = round(random.uniform(amount[0], amount[1]), decimal_places)
                 tasks.append(choose_cex(address, amount_to_withdrawal, wallet_number))
                 await asyncio.sleep(random.randint(delay[0], delay[1]))
